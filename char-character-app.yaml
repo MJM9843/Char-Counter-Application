@@ -1,1 +1,130 @@
 
+# backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: char-counter
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: char-counter
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: char-counter
+        tier: backend
+    spec:
+      containers:
+      - name: backend
+        image: mdilyas9843/char-counter-backend:v1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3001
+          name: http
+        env:
+        - name: PORT
+          value: "3001"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
+
+---
+# backend-service.yaml (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  labels:
+    app: char-counter
+    tier: backend
+spec:
+  type: ClusterIP  # Internal service, not exposed outside cluster
+  selector:
+    app: char-counter
+    tier: backend
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+    name: http
+
+---
+# frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  labels:
+    app: char-counter
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: char-counter
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: char-counter
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: mdilyas9843/char-counter-frontend:v1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: REACT_APP_BACKEND_URL
+          value: "http://backend-service:3001"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# frontend-service.yaml (NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  labels:
+    app: char-counter
+    tier: frontend
+spec:
+  type: NodePort  # Exposed to external traffic
+  selector:
+    app: char-counter
+    tier: frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30000  # Accessible from outside at <NodeIP>:30000
+    protocol: TCP
+    name: http
+
+---
+# namespace.yaml (Optional)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: char-counter-app
+  labels:
+    name: char-counter-app
